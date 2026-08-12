@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+dane/katalog.sqlite3
+dane/katalog.sqlite3-shm
+dane/katalog.sqlite3-wal

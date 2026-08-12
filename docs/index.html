@@ -1,0 +1,1099 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Katalog M1 — jak to działa</title>
+<style>
+  :root {
+    --bg: #f4f6f5;
+    --surface: #ffffff;
+    --surface-2: #eef2f0;
+    --text: #14201d;
+    --muted: #5d706a;
+    --border: #dae3df;
+    --accent: #0f6d5c;
+    --accent-soft: #cfe9e1;
+    --warn: #a8600d;
+    --warn-soft: #f7e9d5;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101614;
+      --surface: #17211e;
+      --surface-2: #1e2b27;
+      --text: #e6edea;
+      --muted: #94a5a0;
+      --border: #2a3733;
+      --accent: #4fd8b8;
+      --accent-soft: #1e3b34;
+      --warn: #e0a862;
+      --warn-soft: #33291a;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.6;
+  }
+  main { max-width: 54rem; margin: 0 auto; padding: 3rem 1.25rem 6rem; }
+
+  h1 { font-size: 1.9rem; margin: 0 0 0.3rem; letter-spacing: -0.02em; }
+  h2 {
+    font-size: 1.3rem;
+    margin: 3.5rem 0 0.75rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    letter-spacing: -0.01em;
+  }
+  h3 { font-size: 1.02rem; margin: 2rem 0 0.5rem; }
+  p { margin: 0.75rem 0; }
+  .lead { color: var(--muted); font-size: 1.02rem; }
+
+  code, .mono { font-family: var(--mono); font-size: 0.88em; }
+  p code, li code, td code {
+    background: var(--surface-2);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 0.85rem 1rem;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.84rem;
+    line-height: 1.5;
+    margin: 1rem 0;
+  }
+
+  /* --- terminy: inline słowniczek --- */
+  .term {
+    border-bottom: 1px dashed var(--accent);
+    cursor: help;
+    font-weight: 600;
+  }
+  .term-def {
+    display: none;
+    background: var(--accent-soft);
+    border-radius: 6px;
+    padding: 0.6rem 0.85rem;
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+  }
+  .term-def.open { display: block; }
+
+  /* --- rozwijane sekcje --- */
+  .fold { border: 1px solid var(--border); border-radius: 8px; margin: 1rem 0; background: var(--surface); }
+  .fold > button {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    color: var(--text);
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 0.8rem 1rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+  }
+  .fold > button::after { content: "+"; font-family: var(--mono); color: var(--accent); font-size: 1.1rem; }
+  .fold.open > button::after { content: "−"; }
+  .fold-body { display: none; padding: 0 1rem 1rem; border-top: 1px solid var(--border); }
+  .fold.open .fold-body { display: block; }
+  .fold-body > *:first-child { margin-top: 0.9rem; }
+
+  .note {
+    background: var(--surface-2);
+    border-left: 3px solid var(--muted);
+    padding: 0.7rem 1rem;
+    border-radius: 0 6px 6px 0;
+    margin: 1rem 0;
+    font-size: 0.93rem;
+  }
+  .note.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; margin: 1rem 0; }
+  th, td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  .wrap { overflow-x: auto; }
+
+  /* --- diagram pipeline --- */
+  .pipe { display: flex; gap: 0.4rem; margin: 1.5rem 0; flex-wrap: wrap; }
+  .pipe button {
+    flex: 1 1 8rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.7rem 0.6rem;
+    cursor: pointer;
+    font: inherit;
+    color: var(--text);
+    text-align: left;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .pipe button:hover { border-color: var(--accent); }
+  .pipe button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+  .pipe .n { font-family: var(--mono); font-size: 0.72rem; color: var(--accent); display: block; font-weight: 700; }
+  .pipe .t { font-weight: 600; font-size: 0.9rem; display: block; }
+  .pipe .s { font-size: 0.76rem; color: var(--muted); display: block; }
+  #pipe-detail {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 1rem 1.15rem;
+    min-height: 6rem;
+  }
+
+  /* --- widget wektorowy --- */
+  .widget { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 1rem; margin: 1.25rem 0; }
+  .widget h4 { margin: 0 0 0.15rem; font-size: 0.95rem; }
+  .widget .hint { color: var(--muted); font-size: 0.84rem; margin: 0 0 0.75rem; }
+  .vec-layout { display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: flex-start; }
+  .vec-layout svg { flex: 0 0 auto; touch-action: none; cursor: grab; }
+  .vec-layout svg:active { cursor: grabbing; }
+  .readout { flex: 1 1 14rem; min-width: 13rem; }
+  .readout dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 0.7rem; align-items: baseline; }
+  .readout dt { font-size: 0.82rem; color: var(--muted); }
+  .readout dd { margin: 0; font-family: var(--mono); font-size: 0.9rem; font-weight: 700; }
+  .readout dd.hi { color: var(--accent); }
+
+  .bar-track { height: 5px; border-radius: 3px; background: var(--accent-soft); overflow: hidden; min-width: 3rem; }
+  .bar-fill { height: 100%; background: var(--accent); }
+
+  ul.tight { margin: 0.5rem 0; padding-left: 1.2rem; }
+  ul.tight li { margin: 0.3rem 0; }
+
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem 1.15rem; margin: 1.75rem 0; }
+  .toc ol { margin: 0.3rem 0 0; padding-left: 1.3rem; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin: 0.22rem 0; font-size: 0.93rem; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Jak to działa</h1>
+<p class="lead">Cztery etapy: od brudnego CSV-a do wyszukiwarki, która potrafi wytłumaczyć każdy swój wynik.
+Wszystkie liczby w tym dokumencie są prawdziwe — zmierzone na tych danych, nie wymyślone na potrzeby przykładu.</p>
+
+<div class="toc">
+  <strong>Spis treści</strong>
+  <ol>
+    <li><a href="#skrot">Skrót: co się dzieje, gdy wpisujesz zapytanie</a></li>
+    <li><a href="#pipeline">Cztery etapy (klikalny diagram)</a></li>
+    <li><a href="#normalizacja">Etap 1 — Normalizacja</a></li>
+    <li><a href="#duplikaty">Etap 2 — Duplikaty</a></li>
+    <li><a href="#harvester">Etap 3 — Harvester</a></li>
+    <li><a href="#szukanie">Etap 4 — Wyszukiwanie</a></li>
+    <li><a href="#odleglosc">Czym jest „odległość” — cosine, Euclidean, Manhattan</a></li>
+    <li><a href="#szybkosc">Dlaczego SQLite i co daje trwałość</a></li>
+    <li><a href="#slabosci">Czego to nie potrafi</a></li>
+  </ol>
+</div>
+
+<h2 id="skrot">1. Skrót</h2>
+
+<p>Wyszukiwarka jest <strong>hybrydowa</strong>, ale nie w typowym sensie. Zwykle „hybrid search” oznacza
+zmieszanie dwóch wyników w jeden (np. <code>0.7 × keyword + 0.3 × semantic</code>). Tutaj celowo
+<strong>nic się nie miesza</strong> — są dwie osobne ścieżki i twardy przełącznik między nimi:</p>
+
+<pre>zapytanie
+   │
+   ├─ wygląda jak numer katalogowy, który znamy?
+   │     └─ TAK  →  ten jeden produkt, wynik 1.00, koniec
+   │
+   └─ cokolwiek innego
+         └─ embedding zapytania + cosine similarity w SQLite
+            po aktualnie zapisanych produktach</pre>
+
+<p>Powód jest prosty: numer katalogowy to <em>identyfikator</em>. Albo jest nasz, albo nie.
+Nie istnieje „0.7 numeru katalogowego”. Gdyby zmieszać obie ścieżki w jedną liczbę,
+odpowiedź <em>pewna</em> i odpowiedź <em>prawdopodobna</em> wyglądałyby tak samo — a to są
+zupełnie różne rzeczy dla kogoś, kto zaraz złoży zamówienie.</p>
+
+<div class="note">
+<strong>Odpowiedź na Twoje pytanie o metrykę:</strong> używana jest <strong>cosine similarity</strong>.
+Nie Euclidean, nie Manhattan. Ranking wykonuje rozszerzenie <code>sqlite-vec</code> funkcją
+<code>vec_distance_cosine()</code>. Związek odległości z podobieństwem tłumaczy
+<a href="#odleglosc">sekcja 7</a>.
+</div>
+
+<h2 id="pipeline">2. Cztery etapy</h2>
+
+<p>Wyszukiwanie to dopiero ostatni etap. To, że <code>CH-10248A</code> w ogóle coś znajduje,
+jest zasługą etapu 2, a to, że kategorie trafiają do embeddingów — zasługą etapu 1.
+Kliknij etap, żeby zobaczyć, co robi.</p>
+
+<div class="pipe" id="pipe">
+  <button data-stage="0" aria-pressed="true">
+    <span class="n">ETAP 1</span><span class="t">Normalizacja</span><span class="s">228 wierszy → wspólny schemat</span>
+  </button>
+  <button data-stage="1" aria-pressed="false">
+    <span class="n">ETAP 2</span><span class="t">Duplikaty</span><span class="s">228 → 214 produktów</span>
+  </button>
+  <button data-stage="2" aria-pressed="false">
+    <span class="n">ETAP 3</span><span class="t">Harvester</span><span class="s">+ dane producenta</span>
+  </button>
+  <button data-stage="3" aria-pressed="false">
+    <span class="n">ETAP 4</span><span class="t">SQLite i wyszukiwanie</span><span class="s">trwała baza + 2 ścieżki</span>
+  </button>
+</div>
+<div id="pipe-detail"></div>
+
+<div class="note">
+<strong>Kolejność nie jest przypadkowa.</strong> Każdy etap potrzebuje poprzedniego:
+normalizacja musi rozpoznać kategorie, zanim duplikaty będą mogły je porównać;
+duplikaty muszą ustalić numer kanoniczny, zanim harvester będzie miał do czego dopasować kartę;
+a wyszukiwarka embeduje etykiety kategorii, których wcześniej nie było w 46 wierszach.
+</div>
+
+<h2 id="normalizacja">3. Etap 1 — Normalizacja</h2>
+
+<p>Wejście: <code>dane/katalog_probka.csv</code>, 228 wierszy, siedem kolumn po polsku
+(<code>nazwa, nr_katalogowy, producent, kategoria, opakowanie, cena, atrybuty_dodatkowe</code>).
+Dane są brudne w bardzo konkretny sposób: ta sama kategoria zapisana na cztery sposoby,
+ceny raz z „PLN” raz bez, opakowania w kilkunastu formatach.</p>
+
+<p>Kluczowa decyzja: <strong>na tym etapie nie ma żadnego fuzzy matchingu</strong>.
+Tylko jawne tabele i zakotwiczone wyrażenia regularne. Jeśli reguła czegoś nie rozpoznaje,
+wynikiem jest <code>None</code> plus wpis o problemie — nigdy zgadywanie.</p>
+
+<div class="fold">
+  <button>Kategorie: 20 zapisów → 5 kodów</button>
+  <div class="fold-body">
+    <p>Dokładnie cztery warianty zapisu na każdą kategorię. Dopasowanie to zwykły
+    <code>dict.get()</code> po <code>casefold()</code> — żadnych podobieństw, żadnych progów.</p>
+    <div class="wrap"><table>
+      <tr><th>Kod kanoniczny</th><th>Rozpoznawane zapisy</th></tr>
+      <tr><td><code>NUCLEIC_ACID_ISOLATION</code></td><td>izolacja dna · izolacja dna/rna · izolacja kwasow nukleinowych · nucleic acid isolation</td></tr>
+      <tr><td><code>PCR_REAGENT</code></td><td>odczynniki do pcr · odczynniki pcr · pcr - odczynniki · pcr reagents</td></tr>
+      <tr><td><code>LAB_CHEMICAL</code></td><td>chemia laboratoryjna · chemicals · odczynniki · odczynniki chemiczne</td></tr>
+      <tr><td><code>LAB_PLASTICWARE</code></td><td>laboratory plasticware · plastik laboratoryjny · plastiki lab. · sprzet jednorazowy</td></tr>
+      <tr><td><code>LAB_EQUIPMENT</code></td><td>aparatura pomiarowa · measuring equipment · pomiary · sprzet pomiarowy</td></tr>
+    </table></div>
+    <p><strong>46 wierszy miało pustą kategorię.</strong> Uzupełniane są w drugim przebiegu:
+    jeśli produkt o <em>dokładnie tej samej nazwie</em> ma gdzie indziej w pliku kategorię,
+    i jest to <em>jedna</em> kategoria — bierzemy ją i oznaczamy jako
+    <code>inferred_from_product_name</code>. Jeśli kandydatów jest zero albo więcej niż jeden,
+    kategoria zostaje pusta i dostaje wpis o problemie. Zła kategoria jest gorsza niż brak kategorii.</p>
+    <p>W tych danych rozwiązuje to wszystkie 46 przypadków, bez ani jednego konfliktu:
+    182 kategorie z wiersza, 46 wywnioskowanych, 0 nierozstrzygniętych.</p>
+  </div>
+</div>
+
+<div class="fold">
+  <button>Opakowania: dlaczego „50 rxn” ≠ „50 szt”</button>
+  <div class="fold-body">
+    <p>Parser szuka pierwszej liczby, a wszystko po niej traktuje jako jednostkę:
+    usuwa znaki niebędące literami i sprawdza w tabeli 14 jednostek.
+    Dlatego <code>50szt</code>, <code>50 szt.</code> i <code>x50 szt</code> dają ten sam wynik.</p>
+    <p><strong>Ilość i jednostka są osobnymi polami</strong> i nigdy się nie zlewają.
+    „50 rxn” to 50 reakcji, „50 szt” to 50 fizycznych sztuk. Ta sama liczba, inny produkt.
+    To ma znaczenie w etapie 2: gdyby porównywać tylko liczbę, dwa różne produkty
+    zostałyby uznane za ten sam.</p>
+    <p>Rozkład jednostek w tych danych:</p>
+    <div class="wrap"><table>
+      <tr><th>Jednostka</th><th>Ile</th><th>Jednostka</th><th>Ile</th></tr>
+      <tr><td>item (szt)</td><td>61</td><td>reaction (rxn)</td><td>24</td></tr>
+      <tr><td>kilogram</td><td>28</td><td>pack (op)</td><td>23</td></tr>
+      <tr><td><em>unknown</em></td><td>28</td><td>gram</td><td>22</td></tr>
+      <tr><td>liter</td><td>17</td><td>milliliter</td><td>16</td></tr>
+      <tr><td>test</td><td>9</td><td></td><td></td></tr>
+    </table></div>
+    <p>28 opakowań ma nierozpoznaną jednostkę. Nie są odrzucane — ilość zostaje zachowana,
+    a jednostka jest jawnie oznaczona jako <code>unknown</code>. To jest istotne później.</p>
+  </div>
+</div>
+
+<div class="fold">
+  <button>Ceny: brak ceny to nie zero</button>
+  <div class="fold-body">
+    <pre>^(?P&lt;amount&gt;\d[\d ]*(?:[.,]\d+)?)\s*(?P&lt;currency&gt;pln|zl|zł)?$</pre>
+    <p>Wyrażenie jest <strong>zakotwiczone</strong> z obu stron (<code>^</code> i <code>$</code>) —
+    to oznacza, że musi pasować do <em>całego</em> tekstu, nie do jego fragmentu.
+    Dzięki temu <code>„3399 PLN plus VAT”</code> jest odrzucane zamiast po cichu przeczytane jako 3399.
+    Cena, której nie umiemy przeczytać w całości, jest <em>brakująca</em>, a nie <em>mniej więcej dobra</em>.</p>
+    <ul class="tight">
+      <li><code>„1021 zl”</code> → 1021 PLN, waluta odczytana z tekstu</li>
+      <li><code>„1 990,00 PLN”</code> → 1990.00 PLN (spacja jako separator tysięcy)</li>
+      <li><code>„1990,00”</code> → 1990.00 PLN, ale z flagą <code>currency_inferred=True</code> — założyliśmy PLN</li>
+      <li><code>„EUR 10”</code> → brak (nie nasza waluta)</li>
+      <li><code>„-10 PLN”</code> → brak (ujemna cena to błąd w danych)</li>
+    </ul>
+    <p>W tych danych: 5 cen brakujących, 109 z domyśloną walutą.
+    Kwoty są trzymane jako <code>Decimal</code>, nigdy <code>float</code> — 0.1 + 0.2 w floatach
+    nie daje 0.3, a to są pieniądze.</p>
+  </div>
+</div>
+
+<div class="fold">
+  <button>Funkcja <code>fold()</code> — jeden znak, który psuje porównania</button>
+  <div class="fold-body">
+    <p>Do porównywania tekstów (nie do zapisu!) używana jest funkcja, która usuwa polskie znaki:</p>
+    <pre>unicodedata.normalize("NFKD", text.replace("ł", "l").replace("Ł", "L"))</pre>
+    <p>Podmianka <code>ł → l</code> wygląda na zbędną obok NFKD, ale jest konieczna.
+    <span class="term" data-def="nfkd">NFKD</span> rozkłada literę z diakrytykiem na literę bazową
+    + znak łączący (<code>ą</code> → <code>a</code> + ogonek), więc znak łączący można potem wyrzucić.
+    Ale polskie <code>ł</code> <strong>nie jest</strong> literą z doklejonym znakiem — to osobna litera
+    z kreską w środku. NFKD jej nie rusza.</p>
+    <div class="term-def" id="def-nfkd"><strong>NFKD</strong> — jeden ze sposobów „rozkładania” Unicode
+    na części pierwsze, żeby ten sam tekst zapisany na dwa sposoby dał się porównać.</div>
+    <p><strong>Konkretny błąd, który to naprawiło:</strong> katalog ma
+    <code>„Czytnik plytek ELISA”</code>, a strona producenta <code>„Czytnik płytek ELISA”</code>.
+    Bez tej podmianki harvester uznałby to za dwie różne nazwy i zgłosił zmianę nazwy produktu,
+    której nie było.</p>
+  </div>
+</div>
+
+<h2 id="duplikaty">4. Etap 2 — Duplikaty</h2>
+
+<p>228 wierszy opisuje 214 produktów. Różnicę robią dwa mechanizmy — i są celowo bardzo różne
+pod względem ostrożności.</p>
+
+<h3>4a. Ten sam numer katalogowy (10 przypadków)</h3>
+<p>Jeśli dwa wiersze mają identyczny numer, to jest ten sam produkt. Tu nie ma co rozstrzygać.
+Wiersze są sortowane po numerze w CSV (żeby wynik nie zależał od kolejności w słowniku),
+a potem dla każdego pola wygrywa <strong>pierwsza niepusta wartość</strong>.</p>
+
+<div class="note">
+<strong>Jeden wyjątek, i to ważny.</strong> Atrybuty <em>nie</em> są wybierane „w całości”, tylko
+scalane flaga po fladze. Gdyby wybrać cały obiekt z jednego wiersza, informacja z drugiego by
+zniknęła. Realny przypadek: <code>PO-10022</code> ma dwa wiersze (1 i 128) i tylko jeden z nich
+mówi o suchym lodzie. Po scaleniu produkt ma <code>dry_ice_required=True</code> — gdyby wybrać
+„lepszy wiersz”, ta informacja przepadłaby po cichu.
+</div>
+
+<h3>4b. Numer z sufiksem wariantu (4 przypadki)</h3>
+<p>Tu zaczyna się prawdziwe rozstrzyganie. <code>CH-10248A</code> <em>wygląda</em> jak wariant
+<code>CH-10248</code>, ale wygląd to nie dowód. Wzorzec numeru jedynie <strong>proponuje parę</strong>:</p>
+<pre>^(?P&lt;base&gt;[A-Z]{2}-\d+)(?P&lt;suffix&gt;[A-Z]|-\d+)$</pre>
+
+<div class="note warn">
+<strong>Dlaczego nie odległość edycyjna (Levenshtein).</strong> W tym katalogu istnieją
+<code>CH-10248</code> („Czytnik plytek ELISA”) i <code>CH-10258</code> („pH-metr stolowy”).
+Różnią się <em>jednym znakiem</em> i są zupełnie innymi produktami. Każda reguła w stylu
+„odległość ≤ 1 ⇒ duplikat” połączyłaby czytnik ELISA z pH-metrem. Dlatego wzorzec wymaga
+sufiksu (litera albo <code>-cyfry</code>) i celowo <strong>nie</strong> dopasowuje
+<code>CH-10258</code> jako wariantu <code>CH-10248</code>.
+</div>
+
+<div class="fold">
+  <button>Reguła koniunkcyjna: wszystkie sześć pól musi się zgadzać</button>
+  <div class="fold-body">
+    <p>Zanim wariant zostanie wchłonięty, porównywanych jest sześć pól:
+    <strong>nazwa, producent, kategoria, opakowanie, cena, atrybuty</strong>.
+    Pole liczy się jako sprzeczne tylko wtedy, gdy <em>obie</em> strony mają wartość i są różne —
+    puste pole to brak dowodu przeciw, a nie różnica.</p>
+    <p>Jeśli cokolwiek się nie zgadza, produkty <strong>zostają osobno</strong>, a w danych ląduje
+    wpis <code>variant_sku_not_merged</code> z informacją, które pole zawiniło. To nie jest próg
+    podobieństwa („zgadza się 4 z 6 pól, czyli chyba to samo”) — to koniunkcja. Wszystko albo nic.</p>
+    <p>W tych danych scalone zostały cztery pary, każda zgodna we wszystkich sześciu polach:</p>
+    <div class="wrap"><table>
+      <tr><th>Kanoniczny</th><th>Alias</th></tr>
+      <tr><td><code>CH-10248</code></td><td><code>CH-10248A</code></td></tr>
+      <tr><td><code>PO-10093</code></td><td><code>PO-10093A</code></td></tr>
+      <tr><td><code>BI-10220</code></td><td><code>BI-10220-1</code></td></tr>
+      <tr><td><code>BI-10282</code></td><td><code>BI-10282-1</code></td></tr>
+    </table></div>
+    <p>Zero przypadków odrzuconych — każda para, która pasowała wzorcem, faktycznie zgadzała się
+    co do joty. To nie znaczy, że reguła jest zbędna: znaczy, że w tej próbce nie było pułapki.
+    Gdyby była, kod by ją zgłosił zamiast scalić.</p>
+  </div>
+</div>
+
+<div class="fold">
+  <button>Subtelność: dwa nierozpoznane opakowania to nie to samo opakowanie</button>
+  <div class="fold-body">
+    <p>Pamiętasz te 28 opakowań z jednostką <code>unknown</code>? Tu robią problem.
+    „50 butelek” i „50 kartonów” <em>oba</em> parsują się do <code>50 unknown</code>.
+    Gdyby porównywać tylko postać sparsowaną, produkt sprzedawany w butelkach i produkt
+    sprzedawany w kartonach uznałyby się za identyczne — i zostałyby scalone.</p>
+    <p>Dlatego przy porównaniu, gdy jednostka jest nieznana, do klucza dokleja się
+    <strong>oryginalny tekst</strong>: <code>„50 unknown of 50 butelek”</code> kontra
+    <code>„50 unknown of 50 kartonow”</code>. Różne, więc nie scala. To samo dotyczy atrybutów,
+    których żadna reguła nie zrozumiała.</p>
+  </div>
+</div>
+
+<h3>4c. Nic nie jest kasowane</h3>
+<p>Wariant nie znika — zostaje <strong>aliasem</strong>. Produkt ma numer kanoniczny i listę aliasów,
+a wyszukiwanie po numerze sprawdza jedno i drugie. Dlatego wpisanie <code>CH-10248A</code> działa,
+mimo że taki produkt „nie istnieje” jako osobny rekord.</p>
+<p>Przy scalaniu przenoszone jest wszystko: pola, których produkt bazowy nie miał, numery wierszy źródłowych,
+<em>zgłoszone problemy</em> i notatki. Problem z jakością danych nie znika dlatego, że jego wiersz
+został wchłonięty. Wszystkie 228 oryginalnych rekordów trafia do SQLite jako trwały ślad pochodzenia.</p>
+
+<h2 id="harvester">5. Etap 3 — Harvester</h2>
+
+<p>Snapshot HTML strony producenta zawiera 11 kart produktowych
+(<code>div.product-card</code>). Z każdej wyciągane są: numer katalogowy z atrybutu
+<code>data-sku</code>, nazwa, opis, warunki przechowywania i zastosowania.</p>
+
+<p><strong>Dopasowanie idzie wyłącznie po numerze katalogowym. Nigdy po nazwie.</strong>
+To nie jest ostrożność teoretyczna — w tym snapshocie jest karta, która celowo ma inną nazwę
+produktu niż katalog: <code>NO-10064</code> to u nas „Mix do PCR 2x”, a u producenta
+„Mix PCR 2x Universal”. Dopasowanie po nazwie albo by tego nie znalazło, albo znalazłoby coś złego.</p>
+
+<div class="note">
+Nazwa <em>jest</em> porównywana — ale dopiero <strong>po</strong> dopasowaniu i tylko po to,
+żeby zapisać notatkę („producent nazywa to inaczej”). Nigdy nie decyduje o dopasowaniu.
+Nazwa z katalogu zostaje, nazwa producenta ląduje obok jako dodatkowa informacja.
+</div>
+
+<div class="fold">
+  <button>Literówka w numerze: <code>NO-103l6</code> → <code>NO-10316</code></button>
+  <div class="fold-body">
+    <p>Jedna karta ma numer <code>NO-103l6</code> — z małą literą <code>l</code> tam, gdzie
+    powinna być jedynka. Klasyczna literówka z przepisywania albo OCR-u. Obsługa jest wąska celowo:</p>
+    <pre>CONFUSABLE_CHARACTERS = {"L": "1", "I": "1", "O": "0"}</pre>
+    <p>Trzy pary znaków, które mylą się <em>wizualnie</em>. Nie „podobne stringi” — konkretnie te,
+    które wyglądają tak samo w większości fontów.</p>
+    <p>Dwa ograniczenia, które pilnują, żeby to nie wymknęło się spod kontroli:</p>
+    <ul class="tight">
+      <li><strong>Tylko część po myślniku.</strong> Prefiks producenta (<code>NO-</code>) zostaje
+      nietknięty — jest krótki, znaczący i nie tam zdarzają się takie literówki.</li>
+      <li><strong>Poprawka musi trafiać w dokładnie jeden istniejący numer.</strong> Jeśli podmianki
+      dają zero trafień albo więcej niż jedno — karta nie jest dopasowywana wcale.
+      Niejednoznaczna poprawka nie jest lepsza od zgadywania.</li>
+    </ul>
+    <p>Tu wyszło jedno trafienie, więc karta została podpięta pod <code>NO-10316</code>
+    („Izopropanol cz.d.a.”), z notatką, że nazwy dodatkowo się zgadzają.</p>
+  </div>
+</div>
+
+<p><strong>Karty, które nie pasują do niczego</strong> (<code>NO-10500</code> i <code>NO-99999</code>)
+nie są dopisywane do katalogu. Trafiają na osobną listę kandydatów. Zescrapowana strona to za mało,
+żeby uznać coś za produkt, który możemy sprzedać — ale za dużo, żeby to wyrzucić.</p>
+
+<p>Bilans: <strong>11 kart → 8 trafień dokładnych + 1 po poprawce literówki + 2 kandydatów.</strong></p>
+
+<h2 id="szukanie">6. Etap 4 — SQLite i wyszukiwanie</h2>
+
+<h3>6a. CSV jest seedem, SQLite jest bazą aplikacji</h3>
+<p>Przy pierwszym starcie pipeline normalizuje CSV, scala produkty, dokleja dane producenta,
+liczy embeddingi i zapisuje wszystko do <code>dane/katalog.sqlite3</code>. Baza ma osobne tabele
+na produkty, numery kanoniczne i aliasy, wektory produktów, wektory pól, rekordy źródłowe oraz
+historię zmian. Kolejne uruchomienie otwiera tę samą bazę — nie liczy ponownie wektorów produktów.</p>
+
+<pre>pierwszy start: CSV + snapshot → pipeline → embeddingi → transakcja SQLite
+kolejny start: SQLite → gotowy katalog
+
+POST /api/products → embedding pól i produktu → jedna transakcja → od razu wyszukiwalny
+DELETE /api/products/{sku} → produkt + aliasy + embeddingi usunięte w jednej transakcji</pre>
+
+<p>Formularz w aplikacji dodaje <strong>gotowy produkt</strong>. Nie udaje kolejnej dostawy CSV
+i nie uruchamia ponownie reguł deduplikacji na całym katalogu. Jeśli zapis produktu albo jego
+embeddingu się nie uda, transakcja jest wycofywana — nie zostaje produkt, którego nie da się wyszukać.</p>
+
+<h3>6b. Co właściwie jest zamieniane na liczby</h3>
+<p>Nie cały wiersz. Do modelu trafia tylko tekst, który coś znaczy:</p>
+
+<div class="wrap"><table>
+  <tr><th>Pole</th><th>Przykład (<code>NO-10064</code>)</th></tr>
+  <tr><td><code>name</code></td><td>Mix do PCR 2x</td></tr>
+  <tr><td><code>manufacturer</code></td><td>NovaGen Labs</td></tr>
+  <tr><td><code>category</code></td><td>odczynniki do PCR, PCR reagents</td></tr>
+  <tr><td><code>description</code> <span style="color:var(--muted)">(jeśli był harvest)</span></td><td>Uniwersalny mix 2x do standardowych reakcji PCR — polimeraza, bufor, dNTP w jednej fiolce…</td></tr>
+  <tr><td><code>applications</code> <span style="color:var(--muted)">(jeśli był harvest)</span></td><td>genotypowanie, screening kolonii</td></tr>
+</table></div>
+
+<p>Numer katalogowy, cena i wielkość opakowania <strong>są pomijane</strong>. Numer obsługuje
+druga ścieżka, a „50” w opakowaniu nie znaczy semantycznie nic — wrzucenie tego do modelu
+dodałoby tylko szumu. Zwróć uwagę na kategorię: embedowany jest <em>opis słowny</em>
+(„odczynniki do PCR, PCR reagents”), a nie kod <code>PCR_REAGENT</code>, bo model rozumie
+polskie i angielskie słowa, a nie nasze identyfikatory.</p>
+
+<h3>6c. Wektor produktu to średnia z pól</h3>
+<p>Każde pole jest embedowane <strong>osobno</strong>, a wektor produktu to ich średnia
+(sprowadzona z powrotem do długości 1). Alternatywą byłoby skleić wszystko w jeden tekst
+i zaembedować raz — działałoby, ale straciłoby jedną własność:</p>
+
+<div class="note">
+Skoro wynik jest podobieństwem do średniej z pól, to <strong>rośnie i maleje razem
+z podobieństwami poszczególnych pól</strong>. Dlatego uzasadnienie obok wyniku („najmocniejsze
+pola: name 0.95, category 0.49”) nie jest ozdobnikiem — to są liczby, z których ten wynik
+faktycznie powstał. Przy jednym sklejonym tekście nie dałoby się powiedzieć, <em>co</em> zadecydowało.
+</div>
+
+<h3>6d. Sprawdź to sam</h3>
+<p>Poniżej prawdziwe wyniki z tego katalogu. Kliknij zapytanie — zobaczysz wynik końcowy
+i podobieństwa pól, które się na niego złożyły.</p>
+
+<div class="widget">
+  <div id="q-buttons" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1rem"></div>
+  <div id="q-results"></div>
+</div>
+
+<h3>6e. Filtry zawężają <em>przed</em> rankingiem</h3>
+<p>Kolejność ma znaczenie. Gdyby wziąć globalny top-10, a potem odfiltrować producenta,
+zostałyby resztki — czasem zero wyników mimo że pasujące produkty istnieją.
+Tutaj filtr najpierw zawęża zbiór kandydatów, a ranking liczy się <em>w jego obrębie</em>,
+więc zawsze dostajesz najlepsze N spośród tego, o co pytałeś.</p>
+<p>Filtr działa też na ścieżce dokładnego numeru: pytanie o <code>CH-10248</code> wśród produktów
+NovaGen zwraca pustkę, bo to produkt ChemTech. Pytanie ma odpowiedź „nie”, a nie „no ale prawie”.</p>
+
+<h3>6f. Uzasadnienia są liczone, nie pisane</h3>
+<p>Żaden model językowy nie generuje tych wyjaśnień. Powstają z prawdziwych cosine similarity
+między zapytaniem a wektorami poszczególnych pól. To nie jest kwestia elegancji —
+uzasadnienie <em>fizycznie nie może</em> stwierdzić czegoś, czego nie ma w liczbach.
+Model językowy potrafiłby napisać przekonujące zdanie o dopasowaniu, którego nie było.</p>
+
+<h2 id="odleglosc">7. Czym jest „odległość”</h2>
+
+<p>Model zamienia tekst na <strong>384 liczby</strong>. Można to sobie wyobrazić jako strzałkę
+w przestrzeni o 384 wymiarach — nie do narysowania, ale matematyka jest identyczna jak dla dwóch
+wymiarów, więc poniżej wszystko dzieje się na płaszczyźnie.</p>
+
+<p>Kluczowe pytanie: skoro mamy dwie strzałki, to co znaczy „blisko”?
+Są trzy popularne odpowiedzi i one <strong>nie są równoważne</strong>.</p>
+
+<div class="widget">
+  <h4>Przeciągnij niebieską strzałkę</h4>
+  <p class="hint">Zielona to produkt, niebieska to Twoje zapytanie. Patrz, co się dzieje z każdą
+  miarą, gdy zmieniasz <em>kierunek</em>, a co gdy zmieniasz tylko <em>długość</em>.</p>
+  <div class="vec-layout">
+    <svg id="vec-svg" width="260" height="260" viewBox="0 0 260 260" aria-label="Interaktywny wykres wektorów"></svg>
+    <div class="readout">
+      <dl>
+        <dt>cosine similarity</dt><dd class="hi" id="r-cos">—</dd>
+        <dt>iloczyn skalarny</dt><dd id="r-dot">—</dd>
+        <dt>Euclidean (L2)</dt><dd id="r-euc">—</dd>
+        <dt>Manhattan (L1)</dt><dd id="r-man">—</dd>
+        <dt>kąt</dt><dd id="r-ang">—</dd>
+        <dt>długość zapytania</dt><dd id="r-len">—</dd>
+      </dl>
+      <div style="margin-top:0.9rem;display:flex;gap:0.4rem;flex-wrap:wrap">
+        <button id="btn-longer" style="font-size:0.82rem;padding:0.35rem 0.6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer">wydłuż ×1.5</button>
+        <button id="btn-norm" style="font-size:0.82rem;padding:0.35rem 0.6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer">znormalizuj oba</button>
+      </div>
+      <p class="hint" id="vec-msg" style="margin-top:0.7rem"></p>
+    </div>
+  </div>
+</div>
+
+<p>Pobaw się chwilę przyciskiem „wydłuż” i zobacz sedno:</p>
+<ul class="tight">
+  <li><strong>Cosine</strong> patrzy <em>tylko na kąt</em>. Wydłużenie strzałki nic nie zmienia.</li>
+  <li><strong>Euclidean</strong> i <strong>Manhattan</strong> mierzą odległość końców strzałek.
+  Wydłużenie zmienia je natychmiast.</li>
+</ul>
+
+<div class="note">
+<strong>I to jest cały powód wyboru cosine.</strong> Długość wektora tekstu zależy m.in. od tego,
+jak długi był tekst. „Waga analityczna” i „Waga analityczna z legalizacją, klasa I, zakres
+0–220 g” mówią o tym samym, ale dają strzałki różnej długości. Interesuje nas <em>o czym</em>
+jest tekst — czyli kierunek — a nie ile go było. Euclidean karałby dłuższe opisy bez powodu.
+</div>
+
+<h3>7a. Jak cosine jest liczone w SQLite</h3>
+<p>Wzór wygląda tak:</p>
+<pre>cosine(a, b) = (a · b) / (|a| × |b|)</pre>
+<p>Każdy wektor jest sprowadzany do długości 1 przed zapisaniem jako float32 BLOB. Zapytanie SQL
+wywołuje <code>vec_distance_cosine(embedding, :query)</code>. Rozszerzenie zwraca
+<em>odległość</em>, więc publiczny wynik zachowuje dotychczasową skalę:</p>
+<pre>score = 1.0 - vec_distance_cosine(embedding, query)</pre>
+<p>Ta sama funkcja liczy podobieństwa pól używane w wyjaśnieniu. Python nie przechowuje macierzy,
+nie sortuje wyników i nie wykonuje wyszukiwania przez NumPy — robi to zapytanie SQLite.</p>
+
+<p>Zmierzone na dwóch prawdziwych wektorach z tego katalogu
+(<code>PO-10022</code> i <code>BI-10137</code>):</p>
+<div class="wrap"><table>
+  <tr><th>Wielkość</th><th>Wartość</th></tr>
+  <tr><td>iloczyn skalarny <code>a · b</code></td><td class="mono">0.5114911794662476</td></tr>
+  <tr><td>cosine liczony „długą drogą”</td><td class="mono">0.5114911794662476</td></tr>
+  <tr><td>różnica</td><td class="mono">0.0 — co do bitu</td></tr>
+  <tr><td>odległość euklidesowa</td><td class="mono">0.98844212</td></tr>
+  <tr><td><code>√(2 − 2·cos)</code></td><td class="mono">0.98844203</td></tr>
+</table></div>
+<p>Ostatnie dwa wiersze pokazują coś jeszcze: dla wektorów o długości 1 Euclidean jest po prostu
+funkcją cosinusa (różnica rzędu 10⁻⁸ to zaokrąglenie float32). Ranking po cosine i ranking po
+Euclidean dałyby <em>tę samą kolejność</em>. Cosine jest wybrane, bo jest czytelniejsze —
+od −1 do 1, gdzie 1 znaczy „ten sam kierunek”.</p>
+
+<h3>7b. Mapa podobieństw</h3>
+<p>Sześć prawdziwych produktów z katalogu, każdy z każdym. Najedź na komórkę, żeby zobaczyć
+dokładną wartość.</p>
+<div class="widget">
+  <div id="heatmap" class="wrap"></div>
+  <p class="hint" id="heat-msg" style="margin-top:0.6rem">—</p>
+</div>
+
+<div class="note warn">
+<strong>Ważna kalibracja:</strong> zwróć uwagę, że najniższa wartość w tej tabeli to około
+<strong>0.31</strong> — dla pary „pH-metr” kontra „Kit do izolacji RNA”, czyli produktów
+niemających ze sobą absolutnie nic wspólnego. <strong>Zero praktycznie nie występuje.</strong>
+Te modele produkują wyniki stłoczone mniej więcej w przedziale 0.3–0.95.
+Dlatego 0.45 <em>nie</em> znaczy „45% pewności” — to jest bliżej dolnej granicy skali, czyli
+„raczej nie”. Wynik jest liczbą porównawczą (ten wynik kontra tamten), a nie
+prawdopodobieństwem. W kodzie uzasadnienie mówi to wprost:
+<em>„cosine similarity, not a probability”</em>.
+</div>
+
+<h2 id="szybkosc">8. Dlaczego SQLite i co daje trwałość</h2>
+
+<p>Początkowy import nadal ma 214 produktów, więc dokładne porównanie zapytania ze wszystkimi
+wektorami jest wystarczające. <code>sqlite-vec</code> wykonuje cosine distance wewnątrz SQLite,
+a zwykłe warunki SQL zawężają producenta i kategorię <strong>przed</strong> rankingiem. Nie ma
+przybliżonego indeksu, który mógłby pominąć wynik.</p>
+
+<div class="wrap"><table>
+  <tr><th>Co</th><th>Gdzie żyje</th><th>Skutek</th></tr>
+  <tr><td>produkty i aliasy SKU</td><td>tabele relacyjne</td><td>dokładne lookupy, filtry i klucze obce</td></tr>
+  <tr><td>wektor produktu</td><td>float32 BLOB w SQLite</td><td>ranking przez <code>vec_distance_cosine</code></td></tr>
+  <tr><td>wektory pól</td><td>osobna tabela</td><td>sprawdzalne uzasadnienie top wyników</td></tr>
+  <tr><td>dodanie/usunięcie</td><td>jedna transakcja</td><td>dane i embeddingi nie mogą się rozjechać</td></tr>
+  <tr><td>embeddingi produktów</td><td>trwały plik bazy</td><td>nie znikają po restarcie procesu</td></tr>
+</table></div>
+
+<p>Model nadal musi zamienić każde nowe zapytanie na 384 liczby. Różnica polega na tym, że
+produkty nie są już ponownie embedowane po restarcie, a dodanie jednego produktu przelicza tylko
+jego pola. SQLite jest tutaj nie tylko silnikiem wektorowym, lecz także właścicielem aktualnego
+stanu aplikacji.</p>
+
+<h2 id="slabosci">9. Czego to nie potrafi</h2>
+
+<p>Uczciwa lista — to są rzeczy, które w tym rozwiązaniu realnie kuleją.</p>
+
+<div class="fold">
+  <button>1. Średnia z pól potrafi zawyżyć wynik niespójnemu produktowi</button>
+  <div class="fold-body">
+    <p>Tu jest prawdziwa, wyliczalna pułapka. Wynik nie jest równy średniej z podobieństw pól —
+    jest do niej <em>proporcjonalny</em>, ale ze współczynnikiem, który <strong>różni się
+    między produktami</strong>. Zmierzony przykład (<code>ME-10017</code>, zapytanie
+    „zestaw do oczyszczania RNA”):</p>
+    <div class="wrap"><table>
+      <tr><td>podobieństwa pól</td><td class="mono">name 0.840 · manufacturer 0.306 · category 0.486</td></tr>
+      <tr><td>ich średnia</td><td class="mono">0.544</td></tr>
+      <tr><td>długość średniego wektora <em>przed</em> normalizacją</td><td class="mono">0.741</td></tr>
+      <tr><td><strong>faktyczny wynik</strong></td><td class="mono">0.544 / 0.741 = <strong>0.734</strong></td></tr>
+    </table></div>
+    <p>Ten dzielnik to długość uśrednionego wektora przed sprowadzeniem go do jedynki.
+    A ona zależy od tego, jak <em>zgodne</em> są ze sobą pola produktu:</p>
+    <ul class="tight">
+      <li>Pola mówiące o tym samym → strzałki w podobnym kierunku → średnia jest <strong>długa</strong>
+      (blisko 1) → dzielnik duży → wynik ≈ średnia.</li>
+      <li>Pola mówiące o różnych rzeczach → strzałki się znoszą → średnia jest <strong>krótka</strong>
+      → dzielnik mały → <strong>wynik podbity w górę</strong>.</li>
+    </ul>
+    <p>Czyli: produkt, którego nazwa, opis i zastosowania dotyczą różnych tematów, dostaje
+    <em>premię</em> względem produktu spójnego. To jest odwrotnie do intuicji.
+    Przy tych danych efekt jest niegroźny (pola są krótkie i zgodne), ale przy bogatych opisach
+    marketingowych mógłby przestawiać kolejność. Uczciwsze byłoby ważenie pól albo liczenie
+    maksimum z pól zamiast średniej.</p>
+  </div>
+</div>
+
+<div class="fold">
+  <button>2. Wyniki nie potrafią rozstrzygnąć remisów</button>
+  <div class="fold-body">
+    <p>Zapytanie „zestaw do oczyszczania RNA” zwraca cztery produkty o <em>identycznej nazwie</em>
+    od czterech różnych producentów, z wynikami 0.808 / 0.807 / 0.801 / 0.795.
+    Te różnice biorą się wyłącznie z nazwy producenta — a to nie ma nic wspólnego z tym,
+    który produkt jest lepszy dla kupującego.</p>
+    <p>Ceny tych czterech: 1233, 767, 4128 i kolejna. Różnica pięciokrotna.
+    Wyszukiwarka o tym nie wie i wiedzieć nie może — sortowanie po cenie, dostępności czy
+    umowie ramowej to decyzja biznesowa, nie semantyczna. Ale to znaczy, że top 1 jest tu
+    w praktyce losowy.</p>
+  </div>
+</div>
+
+<div class="fold">
+  <button>3. Semantyka nie rozumie liczb i parametrów</button>
+  <div class="fold-body">
+    <p>Zapytanie „probówki 0.5 ml” i „probówki 50 ml” dadzą niemal identyczne wektory —
+    dla modelu językowego to bardzo podobne zdania. A to są zupełnie różne produkty.
+    Wielkości opakowań są celowo trzymane poza embeddingiem (bo dodają szumu),
+    ale to znaczy, że <strong>nie da się po nich szukać semantycznie</strong>.
+    Poprawnym rozwiązaniem byłby osobny filtr liczbowy na ilość i jednostkę,
+    obok filtra producenta i kategorii.</p>
+  </div>
+</div>
+
+<div class="fold">
+  <button>4. Literówka w numerze katalogowym po stronie użytkownika nie działa</button>
+  <div class="fold-body">
+    <p>Poprawianie mylących znaków (<code>l</code>→<code>1</code>) działa <em>tylko</em>
+    w harvesterze, przy wczytywaniu danych producenta. Jeśli <em>Ty</em> wpiszesz
+    <code>CH-l0248</code> w wyszukiwarkę, ścieżka dokładna go nie znajdzie i zapytanie poleci
+    do wyszukiwania semantycznego, gdzie numer katalogowy nie znaczy nic sensownego —
+    dostaniesz przypadkowe produkty zamiast komunikatu „nie znam takiego numeru,
+    czy chodziło o CH-10248?”. To najbardziej oczywista rzecz do dorobienia.</p>
+  </div>
+</div>
+
+<div class="fold">
+  <button>5. Reguły są dopasowane do tej próbki</button>
+  <div class="fold-body">
+    <p>20 zapisów kategorii i 14 jednostek to tabele wypisane ręcznie po obejrzeniu
+    <em>tych</em> 228 wierszy. Na nowej dostawie pojawią się zapisy, których nie ma w tabeli —
+    i wtedy kategoria będzie pusta, z wpisem <code>unknown_category_label</code>.
+    To zachowanie jest zamierzone (lepiej brak niż zła), ale wymaga, żeby ktoś
+    <strong>czytał te zgłoszenia</strong>. Obecnie nie ma tego gdzie zobaczyć poza kodem i testami —
+    interfejs ich nie pokazuje.</p>
+  </div>
+</div>
+
+<div class="fold">
+  <button>6. Model nie jest specjalistyczny</button>
+  <div class="fold-body">
+    <p><code>paraphrase-multilingual-MiniLM-L12-v2</code> to model ogólnego przeznaczenia.
+    Wie, że „waga” i „balance” to to samo, ale nie wie, że „Taq” to polimeraza,
+    a „spin column” to metoda izolacji. Model douczony na tekstach z katalogów laboratoryjnych
+    radziłby sobie wyraźnie lepiej z zapytaniami fachowymi. Wybór był świadomy:
+    ten model jest mały, wielojęzyczny i nie wciąga do projektu ~2 GB zależności.</p>
+  </div>
+</div>
+
+</main>
+
+<script>
+// --- rozwijane sekcje ---
+document.querySelectorAll(".fold > button").forEach((b) => {
+  b.addEventListener("click", () => b.parentElement.classList.toggle("open"));
+});
+
+// --- słowniczek inline ---
+document.querySelectorAll(".term").forEach((t) => {
+  t.addEventListener("click", () => {
+    const def = document.getElementById("def-" + t.dataset.def);
+    if (def) def.classList.toggle("open");
+  });
+});
+
+// --- diagram pipeline ---
+const STAGES = [
+  {
+    title: "Etap 1 — Normalizacja",
+    file: "normalize.py",
+    body: `Czyta 228 wierszy CSV i sprowadza je do jednego schematu. Same funkcje czyste
+      i jawne tabele: 20 zapisów kategorii na 5 kodów, 14 jednostek opakowań, jedno
+      zakotwiczone wyrażenie na cenę. Zero fuzzy matchingu — jeśli reguła czegoś nie zna,
+      wynikiem jest brak wartości plus wpis o problemie, nigdy zgadywanie.`,
+    out: "228 wierszy → 228 znormalizowanych rekordów (żaden nie ginie)",
+  },
+  {
+    title: "Etap 2 — Duplikaty",
+    file: "resolve.py",
+    body: `Scala wiersze opisujące ten sam produkt. Dwa mechanizmy: identyczny numer
+      katalogowy (scalane zawsze) oraz numer z sufiksem wariantu, np. CH-10248A wobec
+      CH-10248 (scalane tylko gdy WSZYSTKIE pozostałe pola się zgadzają).`,
+    out: "228 rekordów → 214 produktów",
+  },
+  {
+    title: "Etap 3 — Harvester",
+    file: "harvest.py",
+    body: `Parsuje snapshot HTML strony producenta i dokleja opisy oraz zastosowania do
+      produktów, które już mamy. Dopasowanie WYŁĄCZNIE po numerze katalogowym — nazwy
+      po obu stronach bywają różne, więc nazwa nie jest dowodem tożsamości.`,
+    out: "11 kart → 9 dopasowanych, 2 odłożone jako kandydaci",
+  },
+  {
+    title: "Etap 4 — SQLite i wyszukiwanie",
+    file: "store.py",
+    body: `Przy pierwszym starcie zapisuje produkty, aliasy, rekordy źródłowe i embeddingi
+      w trwałej bazie SQLite. Potem obsługuje dwie ścieżki: dokładny numer katalogowy albo
+      cosine similarity liczone przez sqlite-vec. Dodawanie i usuwanie produktu razem z jego
+      embeddingami odbywa się w jednej transakcji i jest widoczne bez restartu.`,
+    out: "trwały katalog → runtime add/delete → wyniki z wynikiem liczbowym i uzasadnieniem",
+  },
+];
+
+const pipeDetail = document.getElementById("pipe-detail");
+const pipeButtons = [...document.querySelectorAll("#pipe button")];
+
+function showStage(i) {
+  const s = STAGES[i];
+  pipeButtons.forEach((b, j) => b.setAttribute("aria-pressed", String(i === j)));
+  pipeDetail.innerHTML = `
+    <div style="display:flex;justify-content:space-between;gap:1rem;align-items:baseline;flex-wrap:wrap">
+      <strong>${s.title}</strong>
+      <code style="color:var(--muted)">src/katalog/${s.file}</code>
+    </div>
+    <p style="margin:0.6rem 0">${s.body}</p>
+    <p style="margin:0;font-size:0.86rem;color:var(--muted)">
+      <strong>Na wyjściu:</strong> ${s.out}</p>`;
+}
+pipeButtons.forEach((b) => b.addEventListener("click", () => showStage(+b.dataset.stage)));
+showStage(0);
+
+// ===========================================================================
+// Eksplorator zapytań — prawdziwe wyniki, zmierzone na tym katalogu
+// ===========================================================================
+const QUERIES = {
+  "zestaw do oczyszczania RNA": [
+    { sku: "NO-10031", name: "Zestaw do oczyszczania RNA z komorek", man: "NovaGen Labs", score: 0.8077,
+      f: { name: 0.951, manufacturer: 0.410, category: 0.486 } },
+    { sku: "PO-10035", name: "Zestaw do oczyszczania RNA z komorek", man: "PolyLab Systems", score: 0.8067,
+      f: { name: 0.951, manufacturer: 0.427, category: 0.486 } },
+    { sku: "ME-10038", name: "Zestaw do oczyszczania RNA z komorek", man: "MedioScience", score: 0.8007,
+      f: { name: 0.951, manufacturer: 0.306, category: 0.486 } },
+    { sku: "BI-10033", name: "Zestaw do oczyszczania RNA z komorek", man: "BioPrime", score: 0.7951,
+      f: { name: 0.951, manufacturer: 0.370, category: 0.486 } },
+    { sku: "NO-10009", name: "Kit do izolacji RNA z krwi", man: "NovaGen Labs", score: 0.7795,
+      f: { name: 0.840, manufacturer: 0.410, category: 0.486, description: 0.682, applications: 0.476 } },
+  ],
+  "analytical balance": [
+    { sku: "BI-10220", name: "Waga analityczna", man: "BioPrime", score: 0.6250,
+      f: { name: 0.776, manufacturer: 0.231, category: 0.386 } },
+    { sku: "CH-10223", name: "Waga analityczna", man: "ChemTech Supply", score: 0.6200,
+      f: { name: 0.776, manufacturer: 0.304, category: 0.386 } },
+    { sku: "ME-10225", name: "Waga analityczna", man: "MedioScience", score: 0.6136,
+      f: { name: 0.776, manufacturer: 0.315, category: 0.386 } },
+    { sku: "NO-10219", name: "Waga analityczna", man: "NovaGen Labs", score: 0.6036,
+      f: { name: 0.776, manufacturer: 0.225, category: 0.386 } },
+    { sku: "ME-10245", name: "Wirowka laboratoryjna", man: "MedioScience", score: 0.4549,
+      f: { name: 0.411, manufacturer: 0.315, category: 0.386 } },
+  ],
+  "cos do trzymania probek w zimnie": [
+    { sku: "ME-10269", name: "Termostat blokowy", man: "MedioScience", score: 0.5074,
+      f: { name: 0.482, manufacturer: 0.288, category: 0.314 } },
+    { sku: "BI-10264", name: "Termostat blokowy", man: "BioPrime", score: 0.4614,
+      f: { name: 0.482, manufacturer: 0.158, category: 0.314 } },
+    { sku: "NO-10263", name: "Termostat blokowy", man: "NovaGen Labs", score: 0.4449,
+      f: { name: 0.482, manufacturer: 0.146, category: 0.314 } },
+    { sku: "CH-10267", name: "Termostat blokowy", man: "ChemTech Supply", score: 0.4386,
+      f: { name: 0.482, manufacturer: 0.170, category: 0.314 } },
+    { sku: "ME-10209", name: "Termocykler PCR", man: "MedioScience", score: 0.4066,
+      f: { name: 0.258, manufacturer: 0.288, category: 0.314 } },
+  ],
+  "CH-10248A": [
+    { sku: "CH-10248", name: "Czytnik plytek ELISA", man: "ChemTech Supply", score: 1.0, exact: true,
+      why: "CH-10248A jest zarejestrowanym aliasem CH-10248 (dwa wiersze scalone w jeden produkt)" },
+  ],
+};
+
+const QNOTES = {
+  "zestaw do oczyszczania RNA":
+    "Cztery produkty o identycznej nazwie od czterech producentów. Wyniki różnią się o 0.013 — i różnicę robi wyłącznie nazwa producenta. Piąty wynik to inny produkt (izolacja RNA z krwi), który wchodzi dzięki opisowi zebranemu ze strony producenta.",
+  "analytical balance":
+    "Zapytanie po angielsku, katalog po polsku. Model jest wielojęzyczny, więc „analytical balance” trafia w „Waga analityczna” z wynikiem 0.78 na samej nazwie. Piąty wynik (wirówka) spada do 0.45 — to widać jako wyraźny uskok.",
+  "cos do trzymania probek w zimnie":
+    "Zapytanie potoczne, bez żadnego słowa z nazwy produktu. Termostat blokowy to urządzenie do trzymania próbek w stałej temperaturze — model łapie sens, ale wyniki są niskie (0.51), bo to skojarzenie, a nie dopasowanie słów.",
+  "CH-10248A":
+    "Ścieżka dokładna. Żaden embedding się nie liczy, wyszukiwanie semantyczne w ogóle nie startuje. Wynik 1.00 nie jest „bardzo wysokim podobieństwem” — to inna kategoria odpowiedzi.",
+};
+
+const qButtons = document.getElementById("q-buttons");
+const qResults = document.getElementById("q-results");
+
+Object.keys(QUERIES).forEach((q, i) => {
+  const b = document.createElement("button");
+  b.textContent = q;
+  b.setAttribute("aria-pressed", String(i === 0));
+  b.style.cssText =
+    "font:inherit;font-size:0.84rem;padding:0.4rem 0.7rem;border-radius:999px;" +
+    "border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer";
+  b.addEventListener("click", () => showQuery(q));
+  qButtons.appendChild(b);
+});
+
+function showQuery(q) {
+  [...qButtons.children].forEach((b) => {
+    const on = b.textContent === q;
+    b.setAttribute("aria-pressed", String(on));
+    b.style.background = on ? "var(--accent-soft)" : "var(--surface-2)";
+    b.style.borderColor = on ? "var(--accent)" : "var(--border)";
+  });
+
+  const rows = QUERIES[q].map((r) => {
+    if (r.exact) {
+      return `<div style="padding:0.7rem 0;border-bottom:1px solid var(--border)">
+        <div><span class="mono" style="font-weight:700">${r.sku}</span>
+          <span style="color:var(--muted)">${r.name} · ${r.man}</span></div>
+        <div style="margin-top:0.4rem">
+          <span style="font-family:var(--mono);font-size:0.75rem;font-weight:700;background:var(--accent);
+                       color:var(--surface);padding:0.15rem 0.5rem;border-radius:999px">DOKŁADNY SKU · 1.00</span>
+        </div>
+        <div style="margin-top:0.4rem;font-size:0.83rem;color:var(--muted)">${r.why}</div>
+      </div>`;
+    }
+    const fields = Object.entries(r.f)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `
+        <div style="display:flex;align-items:center;gap:0.5rem;margin:0.15rem 0">
+          <span style="flex:0 0 6rem;font-size:0.76rem;color:var(--muted)">${k}</span>
+          <span class="bar-track" style="flex:1"><span class="bar-fill" style="width:${v * 100}%"></span></span>
+          <span class="mono" style="font-size:0.76rem;flex:0 0 2.5rem;text-align:right">${v.toFixed(2)}</span>
+        </div>`).join("");
+
+    return `<div style="padding:0.7rem 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;gap:0.7rem;flex-wrap:wrap">
+        <div><span class="mono" style="font-weight:700">${r.sku}</span>
+          <span style="color:var(--muted)">${r.name} · ${r.man}</span></div>
+        <span class="mono" style="font-weight:700;color:var(--accent)">${r.score.toFixed(3)}</span>
+      </div>
+      <div style="margin-top:0.45rem">${fields}</div>
+    </div>`;
+  }).join("");
+
+  qResults.innerHTML = rows +
+    `<p class="hint" style="margin-top:0.8rem">${QNOTES[q]}</p>`;
+}
+showQuery("zestaw do oczyszczania RNA");
+
+// ===========================================================================
+// Widget wektorowy: cosine vs Euclidean vs Manhattan
+// ===========================================================================
+const svg = document.getElementById("vec-svg");
+const SVG_NS = "http://www.w3.org/2000/svg";
+const CX = 130, CY = 130, SCALE = 78;
+
+const doc = { x: 0.95, y: 0.42 };   // "produkt" — stały
+let qry = { x: 0.32, y: 0.92 };     // "zapytanie" — przeciągalne
+
+const toPx = (v) => ({ x: CX + v.x * SCALE, y: CY - v.y * SCALE });
+const len = (v) => Math.hypot(v.x, v.y);
+
+function drawVec() {
+  const d = toPx(doc), q = toPx(qry);
+  svg.innerHTML = `
+    <defs>
+      <marker id="ah-g" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker>
+      <marker id="ah-b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L7,3 L0,6 Z" fill="#3b82f6"/></marker>
+    </defs>
+    <circle cx="${CX}" cy="${CY}" r="${SCALE}" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/>
+    <line x1="12" y1="${CY}" x2="248" y2="${CY}" stroke="var(--border)"/>
+    <line x1="${CX}" y1="12" x2="${CX}" y2="248" stroke="var(--border)"/>
+    <line x1="${d.x}" y1="${d.y}" x2="${q.x}" y2="${q.y}" stroke="var(--muted)" stroke-dasharray="4 3" opacity="0.7"/>
+    <line x1="${CX}" y1="${CY}" x2="${d.x}" y2="${d.y}" stroke="var(--accent)" stroke-width="2.5" marker-end="url(#ah-g)"/>
+    <line x1="${CX}" y1="${CY}" x2="${q.x}" y2="${q.y}" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#ah-b)"/>
+    <circle cx="${q.x}" cy="${q.y}" r="7" fill="#3b82f6" opacity="0.25"/>
+    <text x="${d.x + 6}" y="${d.y - 6}" font-size="11" fill="var(--accent)" font-weight="700">produkt</text>
+    <text x="${q.x + 6}" y="${q.y - 6}" font-size="11" fill="#3b82f6" font-weight="700">zapytanie</text>`;
+
+  const dot = doc.x * qry.x + doc.y * qry.y;
+  const cos = dot / (len(doc) * len(qry));
+  const euc = Math.hypot(doc.x - qry.x, doc.y - qry.y);
+  const man = Math.abs(doc.x - qry.x) + Math.abs(doc.y - qry.y);
+
+  document.getElementById("r-cos").textContent = cos.toFixed(3);
+  document.getElementById("r-dot").textContent = dot.toFixed(3);
+  document.getElementById("r-euc").textContent = euc.toFixed(3);
+  document.getElementById("r-man").textContent = man.toFixed(3);
+  document.getElementById("r-ang").textContent = ((Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI).toFixed(1) + "°";
+  document.getElementById("r-len").textContent = len(qry).toFixed(3);
+
+  const bothUnit = Math.abs(len(doc) - 1) < 0.01 && Math.abs(len(qry) - 1) < 0.01;
+  document.getElementById("vec-msg").innerHTML = bothUnit
+    ? `Obie strzałki mają długość 1, więc <strong>iloczyn skalarny = cosine</strong>
+       (${dot.toFixed(3)} = ${cos.toFixed(3)}). Dokładnie to robi kod: normalizuje raz,
+       a potem samo mnożenie wystarcza.`
+    : `Długość zapytania to ${len(qry).toFixed(2)}, więc iloczyn skalarny (${dot.toFixed(2)})
+       różni się od cosine (${cos.toFixed(2)}). Kliknij „znormalizuj oba”, żeby się zrównały.`;
+}
+
+function svgPoint(evt) {
+  const r = svg.getBoundingClientRect();
+  return {
+    x: ((evt.clientX - r.left) * (260 / r.width) - CX) / SCALE,
+    y: (CY - (evt.clientY - r.top) * (260 / r.height)) / SCALE,
+  };
+}
+
+let dragging = false;
+svg.addEventListener("pointerdown", (e) => {
+  dragging = true;
+  svg.setPointerCapture(e.pointerId);
+  qry = svgPoint(e);
+  drawVec();
+});
+svg.addEventListener("pointermove", (e) => {
+  if (!dragging) return;
+  qry = svgPoint(e);
+  drawVec();
+});
+svg.addEventListener("pointerup", () => (dragging = false));
+svg.addEventListener("pointercancel", () => (dragging = false));
+
+document.getElementById("btn-longer").addEventListener("click", () => {
+  // Po przekroczeniu brzegu wracamy do krótkiej strzałki, żeby nie uciekła poza rysunek.
+  const factor = len(qry) > 1.45 ? 0.4 / len(qry) : 1.5;
+  qry = { x: qry.x * factor, y: qry.y * factor };
+  drawVec();
+});
+document.getElementById("btn-norm").addEventListener("click", () => {
+  const ld = len(doc), lq = len(qry);
+  doc.x /= ld; doc.y /= ld;
+  qry = { x: qry.x / lq, y: qry.y / lq };
+  drawVec();
+});
+drawVec();
+
+// ===========================================================================
+// Mapa podobieństw — prawdziwe cosine similarity między 6 produktami
+// ===========================================================================
+const HEAT_PRODUCTS = [
+  { sku: "ME-10017", name: "Kit do izolacji RNA z krwi", cat: "NUCLEIC_ACID_ISOLATION" },
+  { sku: "BI-10010", name: "Kit do izolacji RNA z krwi", cat: "NUCLEIC_ACID_ISOLATION" },
+  { sku: "CH-10258", name: "pH-metr stolowy", cat: "LAB_EQUIPMENT" },
+  { sku: "BI-10137", name: "Probowki PCR 0.2ml", cat: "LAB_PLASTICWARE" },
+  { sku: "ME-10289", name: "Etanol absolutny cz.d.a.", cat: "LAB_CHEMICAL" },
+  { sku: "ME-10072", name: "Mix do PCR 2x", cat: "PCR_REAGENT" },
+];
+const HEAT = [
+  [1.000, 0.900, 0.370, 0.488, 0.631, 0.526],
+  [0.900, 1.000, 0.309, 0.585, 0.551, 0.441],
+  [0.370, 0.309, 1.000, 0.649, 0.598, 0.484],
+  [0.488, 0.585, 0.649, 1.000, 0.620, 0.693],
+  [0.631, 0.551, 0.598, 0.620, 1.000, 0.567],
+  [0.526, 0.441, 0.484, 0.693, 0.567, 1.000],
+];
+
+const heatMsg = document.getElementById("heat-msg");
+const darkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+const BASE_RGB = darkMode ? "79,216,184" : "15,109,92";
+
+function heatCell(v) {
+  // Skala zaczyna się od 0.3, bo poniżej tej wartości i tak nic nie schodzi.
+  const a = Math.max(0, Math.min(1, (v - 0.3) / 0.7));
+  const strong = a > 0.6;
+  return `background:rgba(${BASE_RGB},${(a * 0.9).toFixed(3)});` +
+         (strong ? `color:${darkMode ? "#101614" : "#ffffff"};font-weight:700;` : "");
+}
+
+let html = '<table style="font-size:0.8rem"><tr><th></th>';
+HEAT_PRODUCTS.forEach((p) => {
+  html += `<th class="mono" style="text-align:center;font-size:0.7rem">${p.sku}</th>`;
+});
+html += "</tr>";
+HEAT.forEach((row, i) => {
+  html += `<tr><td class="mono" style="white-space:nowrap;font-size:0.74rem">
+             ${HEAT_PRODUCTS[i].sku} <span style="color:var(--muted)">${HEAT_PRODUCTS[i].name}</span></td>`;
+  row.forEach((v, j) => {
+    html += `<td data-i="${i}" data-j="${j}" style="text-align:center;cursor:default;${heatCell(v)}">${v.toFixed(2)}</td>`;
+  });
+  html += "</tr>";
+});
+html += "</table>";
+document.getElementById("heatmap").innerHTML = html;
+
+document.querySelectorAll("#heatmap td[data-i]").forEach((td) => {
+  td.addEventListener("mouseenter", () => {
+    const a = HEAT_PRODUCTS[+td.dataset.i], b = HEAT_PRODUCTS[+td.dataset.j];
+    const v = HEAT[+td.dataset.i][+td.dataset.j];
+    heatMsg.innerHTML = a.sku === b.sku
+      ? `<strong>${a.sku}</strong> z samym sobą — zawsze dokładnie 1.00.`
+      : `<strong>${a.name}</strong> (${a.cat}) ↔ <strong>${b.name}</strong> (${b.cat}) = <strong>${v.toFixed(3)}</strong>`;
+  });
+});
+heatMsg.innerHTML = "Najedź na komórkę. Zwróć uwagę na 0.90 dla dwóch identycznie nazwanych zestawów RNA " +
+  "od różnych producentów — i na 0.31 jako <em>dolną</em> granicę dla produktów bez związku.";
+</script>
+</body>
+</html>

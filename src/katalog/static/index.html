@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Katalog</title>
+<style>
+  /*
+    Two search paths, two visual grammars: an exact catalogue-number hit
+    gets a solid badge (it is either right or it does not exist), a
+    semantic hit gets a numeric score plus a proportional bar (it is a
+    matter of degree). That split is the whole point of search.py -- the
+    UI should not blur it back together.
+  */
+  :root {
+    --bg: #f3f5f3;
+    --surface: #ffffff;
+    --text: #16231f;
+    --text-muted: #5b6e68;
+    --border: #dbe4e0;
+    --accent: #0f6d5c;
+    --accent-soft: #cfe9e1;
+    --accent-strong: #0b4f42;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121816;
+      --surface: #182220;
+      --text: #e7eeeb;
+      --text-muted: #93a39d;
+      --border: #2a3733;
+      --accent: #4fd8b8;
+      --accent-soft: #1f3b34;
+      --accent-strong: #7ce9ce;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.45;
+  }
+  main {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 4rem;
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    letter-spacing: -0.01em;
+  }
+  header p {
+    margin: 0.25rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  #search-form {
+    margin-top: 1.75rem;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr auto;
+    gap: 0.5rem;
+  }
+  @media (max-width: 32rem) {
+    #search-form { grid-template-columns: 1fr; }
+  }
+  input, select, button {
+    font: inherit;
+    font-size: 0.95rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+  }
+  input::placeholder { color: var(--text-muted); }
+  input:focus, select:focus, button:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  button {
+    background: var(--accent);
+    color: var(--surface);
+    border-color: var(--accent);
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+
+  #status {
+    margin-top: 1.5rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    min-height: 1.3rem;
+  }
+
+  #results { margin-top: 0.5rem; }
+  .result {
+    padding: 1.1rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .result:first-child { border-top: 1px solid var(--border); }
+
+  .result-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .sku {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 1rem;
+  }
+  .aliases {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .name { color: var(--text); }
+
+  .meta {
+    margin-top: 0.2rem;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+  }
+  .meta .num { font-family: var(--font-mono); }
+
+  .match {
+    margin-top: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--surface);
+    white-space: nowrap;
+  }
+  .score {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent-strong);
+    white-space: nowrap;
+  }
+  .bar-track {
+    flex: 0 0 5rem;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--accent-soft);
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.2s ease;
+  }
+  .explanation {
+    margin-top: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .management {
+    margin-top: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    padding: 0.7rem;
+  }
+  .management summary { cursor: pointer; font-weight: 600; }
+  #product-form {
+    margin-top: 0.8rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+  #product-form .wide { grid-column: 1 / -1; }
+  #manage-status { margin: 0.6rem 0 0; color: var(--text-muted); font-size: 0.85rem; }
+  .delete-product {
+    margin-left: auto;
+    padding: 0.2rem 0.45rem;
+    background: transparent;
+    color: var(--text-muted);
+    border-color: var(--border);
+    font-size: 0.75rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Katalog</h1>
+    <p>Numer katalogowy trafia dokładnie, opis trafia semantycznie — dwie osobne ścieżki, nie jeden wynik.</p>
+  </header>
+
+  <form id="search-form">
+    <input id="q" type="text" placeholder="Szukaj (np. izolacja RNA z krwi, CH-10248A)" autocomplete="off" />
+    <input id="manufacturer" type="text" placeholder="Producent" autocomplete="off" />
+    <select id="category">
+      <option value="">Wszystkie kategorie</option>
+    </select>
+    <button type="submit">Szukaj</button>
+  </form>
+
+  <details class="management">
+    <summary>Dodaj produkt podczas działania aplikacji</summary>
+    <form id="product-form">
+      <input name="sku" required placeholder="SKU" autocomplete="off" />
+      <input name="name" required placeholder="Nazwa" autocomplete="off" />
+      <input name="manufacturer" required placeholder="Producent" autocomplete="off" />
+      <select name="category"><option value="">Brak kategorii</option></select>
+      <input name="package" placeholder="Opakowanie, np. 50 szt." autocomplete="off" />
+      <input name="price" placeholder="Cena, np. 99 PLN" autocomplete="off" />
+      <input class="wide" name="attributes" placeholder="Atrybuty" autocomplete="off" />
+      <input class="wide" name="description" placeholder="Opis do wyszukiwania" autocomplete="off" />
+      <input class="wide" name="applications" placeholder="Zastosowania" autocomplete="off" />
+      <button class="wide" type="submit">Dodaj i utwórz embedding</button>
+    </form>
+    <p id="manage-status"></p>
+  </details>
+
+  <p id="status"></p>
+  <div id="results"></div>
+</main>
+
+<script>
+  // Only the display label lives here; the value sent to the API is the
+  // canonical code from models.CATEGORY_LABELS, and search.py compares it
+  // exactly, so these five must stay in sync with that dict.
+  const CATEGORIES = {
+    NUCLEIC_ACID_ISOLATION: "Izolacja kwasów nukleinowych",
+    PCR_REAGENT: "Odczynniki PCR",
+    LAB_CHEMICAL: "Chemia laboratoryjna",
+    LAB_PLASTICWARE: "Plastik laboratoryjny",
+    LAB_EQUIPMENT: "Aparatura pomiarowa",
+  };
+
+  const form = document.getElementById("search-form");
+  const qInput = document.getElementById("q");
+  const manufacturerInput = document.getElementById("manufacturer");
+  const categorySelect = document.getElementById("category");
+  const productForm = document.getElementById("product-form");
+  const productCategory = productForm.elements.category;
+  const manageStatus = document.getElementById("manage-status");
+  const statusEl = document.getElementById("status");
+  const resultsEl = document.getElementById("results");
+  const submitButton = form.querySelector("button");
+
+  for (const [code, label] of Object.entries(CATEGORIES)) {
+    const option = document.createElement("option");
+    option.value = code;
+    option.textContent = label;
+    categorySelect.appendChild(option);
+    productCategory.appendChild(option.cloneNode(true));
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const query = qInput.value.trim();
+    resultsEl.innerHTML = "";
+    if (!query) {
+      statusEl.textContent = "Wpisz numer katalogowy albo opis produktu.";
+      return;
+    }
+
+    submitButton.disabled = true;
+    // The embedding model loads lazily on first use (~10 s); later
+    // searches are fast, so this message only matters once per server run.
+    statusEl.textContent = "Szukam... (pierwsze wyszukiwanie może potrwać ok. 10 s)";
+
+    const params = new URLSearchParams({ q: query, limit: "10" });
+    if (manufacturerInput.value.trim()) params.set("manufacturer", manufacturerInput.value.trim());
+    if (categorySelect.value) params.set("category", categorySelect.value);
+
+    try {
+      const response = await fetch(`/api/search?${params}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      render(data.results);
+    } catch (error) {
+      statusEl.textContent = "Wyszukiwanie się nie powiodło. Spróbuj ponownie.";
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+
+  productForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = productForm.querySelector("button");
+    button.disabled = true;
+    manageStatus.textContent = "Tworzę embedding i zapisuję produkt...";
+    const payload = Object.fromEntries(new FormData(productForm));
+    if (!payload.category) payload.category = null;
+    try {
+      const response = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+      manageStatus.textContent = `Dodano ${data.product.sku}. Produkt jest od razu wyszukiwalny.`;
+      productForm.reset();
+      qInput.value = data.product.sku;
+      form.requestSubmit();
+    } catch (error) {
+      manageStatus.textContent = `Nie dodano produktu: ${error.message}`;
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  resultsEl.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-delete]");
+    if (!button) return;
+    const sku = decodeURIComponent(button.dataset.delete);
+    if (!confirm(`Usunąć ${sku} wraz z aliasami i embeddingami?`)) return;
+    button.disabled = true;
+    try {
+      const response = await fetch(`/api/products/${encodeURIComponent(sku)}`, { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+      manageStatus.textContent = `Usunięto ${data.deleted_sku}.`;
+      form.requestSubmit();
+    } catch (error) {
+      manageStatus.textContent = `Nie usunięto produktu: ${error.message}`;
+      button.disabled = false;
+    }
+  });
+
+  function render(results) {
+    if (results.length === 0) {
+      statusEl.textContent = "Brak wyników.";
+      resultsEl.innerHTML = "";
+      return;
+    }
+    statusEl.textContent = `Znaleziono: ${results.length}`;
+    resultsEl.innerHTML = results.map(resultHtml).join("");
+  }
+
+  function resultHtml(r) {
+    const aliases = r.aliases.length
+      ? `<span class="aliases">alias: ${r.aliases.map(escapeHtml).join(", ")}</span>`
+      : "";
+    const category = r.category ? (CATEGORIES[r.category] || r.category) : "brak kategorii";
+    const matchHtml = r.match_type === "exact_sku"
+      ? `<span class="badge">DOKŁADNY SKU · ${r.score.toFixed(2)}</span>`
+      : `<span class="score">semantyczny · ${r.score.toFixed(2)}</span>
+         <span class="bar-track"><span class="bar-fill" style="width:${Math.max(0, r.score) * 100}%"></span></span>`;
+
+    return `
+      <div class="result">
+        <div class="result-head">
+          <span class="sku">${escapeHtml(r.sku)}</span>
+          ${aliases}
+          <span class="name">${escapeHtml(r.name)}</span>
+          <button class="delete-product" data-delete="${encodeURIComponent(r.sku)}" type="button">Usuń</button>
+        </div>
+        <div class="meta">
+          ${escapeHtml(r.manufacturer)} · ${escapeHtml(category)} ·
+          <span class="num">${escapeHtml(r.package)}</span> ·
+          <span class="num">${escapeHtml(r.price)}</span>
+        </div>
+        <div class="match">${matchHtml}</div>
+        <div class="explanation">${escapeHtml(r.explanation)}</div>
+      </div>`;
+  }
+
+  function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value;
+    return div.innerHTML;
+  }
+</script>
+</body>
+</html>

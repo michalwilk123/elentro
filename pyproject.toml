@@ -1,0 +1,29 @@
+[project]
+name = "katalog"
+version = "0.1.0"
+description = "M1: normalizacja katalogu, mini-harvester i wyszukiwarka hybrydowa"
+readme = "README.md"
+authors = [
+    { name = "Michał Wilk", email = "michalwilk139@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.15.0",
+    "fastapi>=0.141.1",
+    "fastembed>=0.8.0",
+    "sqlite-vec==0.1.9",
+    "uvicorn>=0.52.1",
+]
+
+[project.scripts]
+katalog-web = "katalog.web:main"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=8",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.7,<0.11.0"]
+build-backend = "uv_build"
